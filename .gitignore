@@ -3,3 +3,5 @@
 old-analyses
 __pycache__
 code-testing
+.DS_Store
+.vscode
