@@ -1,0 +1,5 @@
+._*
+.venv/
+old-analyses
+__pycache__
+code-testing
