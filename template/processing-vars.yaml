@@ -1,0 +1,16 @@
+parent_dir: "/Volumes/T7/Image-Analysis/Ir-Complex-Reduction/" 
+date_and_reactor: "dd-mm-yy-Vaporeon" # Change date/reactor
+camera: "bottom"                      # White/yellow light
+channel: "average"                    # Channel color (found in analysis)
+
+rows: 8        # Change to num rows
+cols: 12       # Change to num cols
+num_refs: 4    # Change to num refs
+
+# Replace with chemical names
+CNs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+NNs: [1, 2, 3, 4, 5, 6, 7, 8]
+
+# This variable references when the analysis will look for the inflection point.
+# There are three options: "min", "mid", and "max".
+inflection_point: "min"

@@ -1,0 +1,21 @@
+parent_dir: "/Volumes/T7/Image Analysis/Ester Bond Formation/" 
+date_and_reactor: "05-07-24-Seel" # Change date/reactor
+light_color: "white"
+channel: "average"
+
+rows: 8        # Change to num rows
+cols: 8       # Change to num cols
+num_refs: 4    # Change to num refs
+
+# Replace with chemical names
+group: ['MeOH', 'EtOH', 'IPA', 'hex', '1-octanol', '3-ethoxyethanol', 'tert-butanol', 'blank']
+group_names: "group"  # match above
+
+# This variable references when the analysis will look for the inflection point.
+# There are three options: "min", "mid", and "max".
+inflection_point: "mid"
+
+acid_chloride: ["2,4-difluorobenzoyl chloride"] # Change acid chloride
+initial_conc: 0.4
+dilution_factor: 2           # the following well is 1/x of the previous well
+rxn_order: 1                 # order of rxn: 0th, 1st, 2nd
