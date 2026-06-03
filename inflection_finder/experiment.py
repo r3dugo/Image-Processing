@@ -711,7 +711,7 @@ class Experiment(object):
                 if re.fullmatch(r"\s*-?\d+\s*", s):
                     try:                return (int(s), 0, "")
                     except Exception:   pass
-                    
+
                 # Fallback: place non-numeric labels after numeric, sort by string
                 return (10**9, 0, s)
 
@@ -733,6 +733,7 @@ class Experiment(object):
         combined.to_csv(output_path, index_label="CN")
         print(f"Saved {save_label} to {output_path}")
         return output_path
+
 
     def export_inflection_points_csv(self, filename="inflection_points.csv", output_dir=None):
         """Export per-well inflection times as a CN x NN CSV."""

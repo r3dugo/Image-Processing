@@ -33,8 +33,8 @@ def plot_inflection_matrices(inflection_matrix, inflection_value_matrix=None, ro
         fig, ax = plt.subplots(1, 1, figsize=(8, 6))
         im = ax.imshow(inflection_matrix, cmap='viridis', aspect='auto')
         ax.set_title('Inflection Points (Time in minutes)')
-        ax.set_xlabel('Column')
-        ax.set_ylabel('Row')
+        ax.set_xlabel('NN')
+        ax.set_ylabel('CN')
         cbar = plt.colorbar(im, ax=ax)
         cbar.set_label('Time (min)', rotation=270, labelpad=20)
 
@@ -61,8 +61,8 @@ def plot_inflection_matrices(inflection_matrix, inflection_value_matrix=None, ro
 
     im1 = ax1.imshow(inflection_matrix, cmap='viridis', aspect='auto')
     ax1.set_title('Inflection Points (Time in minutes)', fontsize=12, fontweight='bold')
-    ax1.set_xlabel('Column')
-    ax1.set_ylabel('Row')
+    ax1.set_xlabel('NN')
+    ax1.set_ylabel('CN')
     cbar1 = plt.colorbar(im1, ax=ax1)
     cbar1.set_label('Time (min)', rotation=270, labelpad=20)
     # Set ticks and labels
@@ -81,8 +81,8 @@ def plot_inflection_matrices(inflection_matrix, inflection_value_matrix=None, ro
 
     im2 = ax2.imshow(inflection_value_matrix, cmap='plasma', aspect='auto')
     ax2.set_title('Intensity at Inflection Point', fontsize=12, fontweight='bold')
-    ax2.set_xlabel('Column')
-    ax2.set_ylabel('Row')
+    ax2.set_xlabel('NN')
+    ax2.set_ylabel('CN')
     cbar2 = plt.colorbar(im2, ax=ax2)
     cbar2.set_label('Intensity', rotation=270, labelpad=20)
     # Set ticks and labels
