@@ -629,21 +629,32 @@ class Experiment(object):
             try:
                 existing = pd.read_csv(output_path, index_col=0)
 
-                # Normalize numeric-like labels to integers where possible to avoid
+                # Normalise numeric-like labels to integers where possible to avoid
                 # pandas treating '1' (str) and 1 (int) as different labels which
                 # leads to duplicate-looking CSV headers.
+
+                def _to_int_label(x):
+                    s = str(x).strip()
+                    # Handles normal labels like "1", "11", "21"
+                    if re.fullmatch(r"-?\d+", s):
+                        return int(s)
+                    return x
+
                 def _to_int_labels(labels):
-                    new = []
-                    for x in labels:
-                        s = str(x)
-                        if re.fullmatch(r"\s*-?\d+\s*", s):
-                            try:
-                                new.append(int(s))
-                            except Exception:
-                                new.append(x)
-                        else:
-                            new.append(x)
-                    return pd.Index(new)
+                    return pd.Index([_to_int_label(x) for x in labels])
+
+                def add_empty_row(combined, row_label):
+                    new_row = pd.Series(np.nan, index=combined.columns, dtype=float)
+                    return pd.concat(
+                        [combined, pd.DataFrame([new_row], index=[row_label])],
+                        axis=0,
+                        sort=False
+                    )
+
+                def next_duplicate_cn(combined, cn):
+                    k = 1
+                    while f"{cn}-{k}" in combined.index: k += 1
+                    return f"{cn}-{k}"
 
                 existing.index = _to_int_labels(existing.index)
                 existing.columns = _to_int_labels(existing.columns)
@@ -652,72 +663,36 @@ class Experiment(object):
 
                 combined = existing.copy()
 
-                # Ensure all columns from df exist in combined
-                for col in df.columns:
-                    if col not in combined.columns:
-                        combined[col] = np.nan
+                # Add missing NN columns.
+                for nn in df.columns:
+                    if nn not in combined.columns: combined[nn] = np.nan
 
-                # Merge values from df into combined following the requested rules.
-                # For each CN in the new df, create a single target row for this run:
-                # - If CN not present in combined, create base CN row and write all NNs there.
-                # - If CN present, create the next duplicate label CN-1 (or CN-k if CN-1..CN-(k-1) exist)
-                #   and write all NNs for this CN into that single new row. This ensures
-                #   all values from the current run for a CN go into the same duplicate row.
+                # Important: make sure columns are unique.
+                combined = combined.loc[:, ~combined.columns.duplicated()]
+
                 for cn in df.index:
                     row_series = df.loc[cn]
 
-                    if row_series.dropna().empty:
-                        continue
+                    if row_series.dropna().empty: continue
 
-                    # If CN row does not exist yet, create it
+                    # If this CN is new, use the base row.
                     if cn not in combined.index:
-                        new_row = pd.Series(index=combined.columns, dtype=float)
-                        new_row[:] = np.nan
-                        combined = pd.concat(
-                            [combined, pd.DataFrame([new_row], index=[cn])],
-                            axis=0,
-                            sort=False
-                        )
+                        target_cn = cn
+                        combined = add_empty_row(combined, target_cn)
 
-                    # Go cell-by-cell through each NN value
+                    # If this CN already exists, this whole run becomes CN-1, CN-2, etc.
+                    else:
+                        target_cn = next_duplicate_cn(combined, cn)
+                        combined = add_empty_row(combined, target_cn)
+
+                    # Put all NN values from this run into the same target CN row.
                     for nn, v in row_series.items():
-                        if pd.isna(v):
-                            continue
+                        if pd.isna(v): continue
 
-                        # If NN column does not exist yet, create it
-                        if nn not in combined.columns:
-                            combined[nn] = np.nan
+                        combined.at[target_cn, nn] = v
+            except Exception: combined = df
+        else: combined = df
 
-                        # If exact CN x NN cell is empty, write value there
-                        if pd.isna(combined.at[cn, nn]):
-                            combined.at[cn, nn] = v
-
-                        # If exact CN x NN cell is already occupied, this is a replicate
-                        else:
-                            k = 1
-                            while True:
-                                duplicate_cn = f"{cn}-{k}"
-
-                                # Create duplicate row if needed
-                                if duplicate_cn not in combined.index:
-                                    new_row = pd.Series(index=combined.columns, dtype=float)
-                                    new_row[:] = np.nan
-                                    combined = pd.concat(
-                                        [combined, pd.DataFrame([new_row], index=[duplicate_cn])],
-                                        axis=0,
-                                        sort=False
-                                    )
-
-                                # Put replicate in first duplicate row where this NN is empty
-                                if pd.isna(combined.at[duplicate_cn, nn]):
-                                    combined.at[duplicate_cn, nn] = v
-                                    break
-
-                                k += 1
-            except Exception:
-                combined = df
-        else:
-            combined = df
 
         # Sort NN columns and CN index when possible (numeric sort if labels numeric)
         def _sort_labels(labels):
@@ -725,19 +700,18 @@ class Experiment(object):
 
             def sort_key(lab):
                 # Try integer label
-                if isinstance(lab, (int, np.integer)):
-                    return (int(lab), 0, "")
+                if isinstance(lab, (int, np.integer)): return (int(lab), 0, "")
                 s = str(lab)
+
                 # Match primary-secondary like '9-1'
                 m = re.match(r"^(\d+)-(\d+)$", s)
-                if m:
-                    return (int(m.group(1)), int(m.group(2)), "")
+                if m: return (int(m.group(1)), int(m.group(2)), "")
+                
                 # Match plain integer in string
                 if re.fullmatch(r"\s*-?\d+\s*", s):
-                    try:
-                        return (int(s), 0, "")
-                    except Exception:
-                        pass
+                    try:                return (int(s), 0, "")
+                    except Exception:   pass
+                    
                 # Fallback: place non-numeric labels after numeric, sort by string
                 return (10**9, 0, s)
 
@@ -779,7 +753,7 @@ class Experiment(object):
     def plot_inflection_points(self):
         '''
         Create a summary plot showing inflection points and plateaus across all wells.
-        This creates a grid visualization where each well's inflection point and plateau
+        This creates a grid visualisation where each well's inflection point and plateau
         are displayed in a heatmap format.
         '''
         rows = self.user_parameters.get("rows")
