@@ -18,7 +18,6 @@ display_figures: True
 # This variable specifies the absolute parent directory that contains the
 # data for all experiments.
 parent_data_directory: "/Volumes/T7/Image-Analysis"
-
 # This variable specifes the name of the project. A sub-folder of the same
 # name should exist in the parent_data_directory.
 project_name: "Ir-Complex-Reduction"
@@ -28,7 +27,7 @@ project_name: "Ir-Complex-Reduction"
 # contain an "input" sub-directory (the structure of this directory is
 # specified in the README.txt). The "input" sub-directory will contain all
 # image/mask inputs for the image processing.
-experiment_name: "dd-mm-yy-Reactor"
+experiment_name: "mm-dd-yy-Vaporeon"
 
 # This variable specifies the number of columns in each row of wells, including 
 # the reference wells. The rows are ordered from top to bottom in the mask
@@ -50,7 +49,7 @@ columns_per_row: [12, 12, 13, 13, 13, 13, 12, 12]
 # notebook to display in an unusual way (this is because the ordering does not
 # account for columns, so labeling a well as "empty" will cause the sample 
 # labels in the same row to shift as if the well was not there).
-ref_or_empty: {"(2,12)": "ref","(3,12)": "ref","(4,12)": "ref","(5,12)": "ref"}
+ref_or_empty: {"(2,0)": "ref","(3,0)": "ref","(4,0)": "ref","(5,0)": "ref"}
 
 # This variable specifies the image channels to be used for analysis. Multiple
 # channels can be passed in, and each channel will be analyzed separately.

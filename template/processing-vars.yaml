@@ -1,16 +1,25 @@
 parent_dir: "/Volumes/T7/Image-Analysis/Ir-Complex-Reduction/" 
 date_and_reactor: "dd-mm-yy-Vaporeon" # Change date/reactor
-camera: "bottom"                      # White/yellow light
-channel: "average"                    # Channel color (found in analysis)
+camera: "bottom"                      # Top or bottom camera
+channel: "green"                      # Channel color (found in analysis)
+                                      # Found that "average and "green" work best
 
 rows: 8        # Change to num rows
 cols: 12       # Change to num cols
 num_refs: 4    # Change to num refs
 
-# Replace with chemical names
+# Replace with CN/NN numbers
 CNs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 NNs: [1, 2, 3, 4, 5, 6, 7, 8]
 
-# This variable references when the analysis will look for the inflection point.
-# There are three options: "min", "mid", and "max".
-inflection_point: "min"
+# Plateau selection strategy when multiple plateaus are detected.
+# Options: "latest" (default - plateau ends latest), "longest" (most points), "first" (old behavior)
+plateau_selection: "longest"
+
+# LOESS bandwidth for smoothing the data
+# Range: 0.1-1.0 (lower = less smoothing/more detail, higher = more smoothing/cleaner curves)
+# Default: 0.3
+loess_bandwidth: 0.28
+inflection_threshold: 0.80
+# Selection strictness: 0.0 (relaxed — choose deepest minimum after crossing) to 1.0 (strict — choose first crossing)
+selection_strictness: 0.75
