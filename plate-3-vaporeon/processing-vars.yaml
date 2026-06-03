@@ -1,15 +1,15 @@
 parent_dir: "/Volumes/T7/Image-Analysis/Ir-Complex-Reduction/" 
-date_and_reactor: "05-15-26-Vaporeon-uniform" # Change date/reactor
+date_and_reactor: "05-11-26-Vaporeon-plate3" # Change date/reactor
 camera: "data/bottom"                      # White/yellow light
-channel: "average"                    # Channel color (found in analysis)
+channel: "green"                    # Channel color (found in analysis)
 
 rows: 8        # Change to num rows
 cols: 12       # Change to num cols
 num_refs: 4    # Change to num refs
 
 # Replace with chemical names
-CNs: [9, 9, 9, 9, 9, 9, 9, 9]
-NNs: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+CNs: [14, 15, 29, 30, 32, 33, 35, 36]
+NNs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 19, 21]
 
 # Plateau selection strategy when multiple plateaus are detected.
 # Options: "latest" (default - plateau ends latest), "longest" (most points), "first" (old behavior)
@@ -18,7 +18,7 @@ plateau_selection: "longest"
 # LOESS bandwidth for smoothing the data
 # Range: 0.1-1.0 (lower = less smoothing/more detail, higher = more smoothing/cleaner curves)
 # Default: 0.3
-loess_bandwidth: 0.2
-inflection_threshold: 0.7
+loess_bandwidth: 0.28
+inflection_threshold: 0.82
 # Selection strictness: 0.0 (relaxed — choose deepest minimum after crossing) to 1.0 (strict — choose first crossing)
-selection_strictness: 0.7
+selection_strictness: 0.75
