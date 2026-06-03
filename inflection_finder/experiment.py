@@ -598,15 +598,12 @@ class Experiment(object):
         print(f"✓ Reprocessing complete. {len(self.inflection_points)} wells analyzed.")
         return self.inflection_points
 
-    def export_inflection_points_csv(self, filename="inflection_points.csv", output_dir=None):
-        """Simple export: build CN x NN table, append to existing CSV if present.
+    def _export_well_matrix_csv(self, values, filename, output_dir=None, save_label="CSV"):
+        """Build CN x NN table from per-well values and write/append CSV.
 
         Keeps column headers as-is. If an existing file exists it is read and
         the new rows are appended (columns are aligned by header names).
         """
-        if len(self.inflection_points) == 0:
-            self.get_inflection_points()
-
         rows = self.user_parameters.get("rows")
         cols = self.user_parameters.get("cols")
         CNs = self.user_parameters.get("CNs") or list(range(1, rows + 1))
@@ -614,7 +611,7 @@ class Experiment(object):
 
         # Build matrix and DataFrame
         inf_matrix = np.full((rows, cols), np.nan)
-        for i, val in enumerate(self.inflection_points[: rows * cols]):
+        for i, val in enumerate(values[: rows * cols]):
             r = i // cols
             c = i % cols
             inf_matrix[r, c] = val
@@ -760,9 +757,24 @@ class Experiment(object):
             pass
 
         combined.to_csv(output_path, index_label="CN")
-        print(f"Saved inflection points CSV to {output_path}")
+        print(f"Saved {save_label} to {output_path}")
         return output_path
 
+    def export_inflection_points_csv(self, filename="inflection_points.csv", output_dir=None):
+        """Export per-well inflection times as a CN x NN CSV."""
+        if len(self.inflection_points) == 0:
+            self.get_inflection_points()
+        return self._export_well_matrix_csv(
+            self.inflection_points, filename, output_dir, save_label="inflection points CSV"
+        )
+
+    def export_intensity_points_csv(self, filename="intensity_points.csv", output_dir=None):
+        """Export per-well intensity values at inflection points as a CN x NN CSV."""
+        if len(self.inflection_point_values) == 0:
+            self.get_inflection_points()
+        return self._export_well_matrix_csv(
+            self.inflection_point_values, filename, output_dir, save_label="intensity points CSV"
+        )
 
     def plot_inflection_points(self):
         '''
