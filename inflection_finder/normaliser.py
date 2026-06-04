@@ -4,6 +4,99 @@ import numpy as np
 import pandas as pd
 
 
+def _check_file(exp_name, csv_name):
+    """
+    Helper for normalise_plates.
+    Checks existence of experiment and desired output file.
+
+    Takes in:
+        - name of experiment directory in "experiments"
+        - name of csv in "output" (should be "inflection_points.csv"
+                                          or "intensity_points.csv")
+
+    Produces:
+        - error message and returns if folder/file not found
+
+    Outputs:
+        - the path to the output file if valid
+    """
+    exp_folder = os.path.join("..", "experiments", exp_name)
+
+    # Checks if experiment is found in "experiments" folder.
+    if not os.path.isdir(exp_folder):
+        print(f"'{exp_name}' not found in 'experiments' folder.")
+        return
+
+    exp_path = os.path.join(exp_folder, "output", csv_name)
+
+    # Checks if csv file is found in output folder.
+    if not os.path.isfile(exp_path):
+        print(f"'{csv_name}' not found in '{exp_name}/output.'")
+        return
+    
+    return exp_path
+
+
+def normalise_plates(uniform_name, exp_names, int_or_infl, cap_size=1):
+    """
+    Plates should be placed in "experiments" file.
+    Each plate should have an "output" folder with "inflection_points.csv"
+                                               and "intensity_points.csv".
+
+    Takes in:
+        - uniform_name: uniform plate experiment name (string)
+        - plate_paths:  list of plate experiment names (list of strings)
+        - int_or_infl:  "intensity" or "inflection" for path search
+        - cap_size:     max normalised value. Default of 1
+
+    Produces:
+        - "{plate-name}-corrected.csv" files in "output/{int_or_infl}"
+    """
+    output_dir = os.path.join("output", int_or_infl)
+    csv = int_or_infl + "_points.csv"
+
+    uniform_path = _check_file(uniform_name, csv)
+
+    # Check if output csv exists at uniform_name
+    if uniform_path:
+        uniform_raw = pd.read_csv(uniform_path, index_col=0)    
+    else: return
+
+    for exp_name in exp_names:
+
+        # Stop output if csv does not exist at experiment
+        exp_path = _check_file(exp_name, csv)
+        if not exp_path: break
+
+        exp = pd.read_csv(exp_path, index_col=0)
+        uniform = uniform_raw.copy()
+
+        if uniform.shape != exp.shape:
+            raise ValueError(
+                f"Shape mismatch for {exp_name}: experiment {exp.shape}, uniform {uniform.shape}"
+            )
+
+        # Align by physical plate position, then copy experiment labels
+        uniform.index = exp.index
+        uniform.columns = exp.columns
+
+        max_uniform = uniform.max().max()
+        correction_factor = uniform / max_uniform
+
+        corrected = exp / correction_factor.replace(0, np.nan)
+
+        # Make all values > cap_size equal to cap_size
+        corrected = corrected.clip(upper=cap_size)
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        output_path = os.path.join(output_dir, f"{exp_name}-corrected.csv")
+        corrected.to_csv(output_path, index_label="CN")
+
+        print(f"Saved {output_path}")
+
+
+
 def combine_well_matrix_csvs(csv_paths, output_path, cap_size=1):
     """
     Combine multiple CN x NN CSV files into one CN x NN CSV.
@@ -108,9 +201,6 @@ def combine_well_matrix_csvs(csv_paths, output_path, cap_size=1):
         
     combined = combined.reindex(columns=sort_labels(combined.columns))
     combined = combined.reindex(index=sort_labels(combined.index))
-
-    # Make all values > 1 equal to 1
-    combined = combined.clip(upper=cap_size)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     combined.to_csv(output_path, index_label="CN")
