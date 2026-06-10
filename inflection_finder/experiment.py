@@ -9,7 +9,6 @@ from sklearn.metrics import r2_score
 # LOESS import is performed lazily inside process_data to avoid hard dependency at module import time
 import re
 
-
 class UserParameters(object):
     '''
     A class for handling user parameters from the user config file.
@@ -80,7 +79,6 @@ class Experiment(object):
 
         self.inflection_points = []
         self.inflection_point_values = []  # Store intensity values at inflection points
-        self.plateau_regions = []  # Store plateau regions for each well
         self.filtered_data = {}  # Store filtered time and intensity arrays
         self._process_debugs = []  # Per-call debug summaries from process_data
         # Read LOESS bandwidth from config, default to 0.3 if not specified
@@ -117,94 +115,6 @@ class Experiment(object):
         
         return filtered_time, filtered_array, cutoff_index
     
-    def detect_plateau(self, time_array, array, window_size=10, threshold=0.01):
-        '''
-        Detect plateaus in the data by finding regions where the local slope is close to zero.
-
-        Selection behavior (optional user parameter 'plateau_selection'):
-          - 'latest'  (default): choose the plateau whose END is latest in time
-          - 'longest': choose the plateau with the most points
-          - 'first':   choose the first plateau detected (old behavior)
-        '''
-        if len(array) < window_size:
-            return None, None, None, None
-
-        # Force float64 and drop NaNs so lengths match
-        time_array = np.asarray(pd.to_numeric(time_array, errors='coerce'), dtype=np.float64)
-        array = np.asarray(pd.to_numeric(array, errors='coerce'), dtype=np.float64)
-        mask = np.isfinite(time_array) & np.isfinite(array)
-        time_array = time_array[mask]
-        array = array[mask]
-        if len(array) < window_size:
-            return None, None, None, None
-
-        # Optional: adaptive threshold if user passes 'auto' or None
-        if threshold is None or (isinstance(threshold, str) and threshold.lower() == 'auto'):
-            # Estimate a typical slope scale from the median absolute derivative
-            dt = np.diff(time_array)
-            dy = np.diff(array)
-            valid = np.isfinite(dt) & np.isfinite(dy) & (dt != 0)
-            if np.any(valid):
-                deriv = np.abs(dy[valid] / dt[valid])
-                med = np.median(deriv)
-                threshold = 0.2 * med  # conservative: plateau is much flatter than typical change
-            else:
-                threshold = 0.01
-
-        # Rolling slope over windows via np.polyfit (slope only)
-        slopes = np.empty(len(array) - window_size + 1, dtype=np.float64)
-        slopes[:] = np.inf
-        for i in range(len(slopes)):
-            window_time = time_array[i:i + window_size]
-            window_data = array[i:i + window_size]
-            if len(np.unique(window_time)) > 1 and np.all(np.isfinite(window_time)) and np.all(np.isfinite(window_data)):
-                slopes[i] = abs(np.polyfit(window_time, window_data, 1)[0])
-            else:
-                slopes[i] = np.inf
-
-        # Build contiguous plateau regions where slope < threshold
-        plateau_regions = []
-        in_plateau = False
-        plateau_start = None
-        for i, slope in enumerate(slopes):
-            if slope < threshold and not in_plateau:
-                in_plateau = True
-                plateau_start = i
-            elif slope >= threshold and in_plateau:
-                plateau_end = i + window_size - 1
-                if plateau_end - plateau_start >= window_size:
-                    plateau_regions.append((plateau_start, plateau_end))
-                in_plateau = False
-                plateau_start = None
-
-        # Plateau continues to end
-        if in_plateau and plateau_start is not None:
-            plateau_end = len(array) - 1
-            if plateau_end - plateau_start >= window_size:
-                plateau_regions.append((plateau_start, plateau_end))
-
-        if not plateau_regions:
-            return None, None, None, None
-
-        selection = self.user_parameters.user_parameters.get('plateau_selection', 'latest')
-        selection = str(selection).lower()
-
-        def score(region):
-            s, e = region
-            length = e - s + 1
-            if selection == 'longest':
-                return (length, e)  # primary: length, secondary: latest
-            if selection == 'first':
-                return (-s, -length)  # smallest start wins; invert for max()
-            # default/latest
-            return (e, length)  # primary: latest end, secondary: length
-
-        best = max(plateau_regions, key=score)
-        start_idx, end_idx = best
-        plateau_time = time_array[start_idx]
-        plateau_value = float(np.mean(array[start_idx:end_idx + 1]))
-        return start_idx, end_idx, plateau_time, plateau_value
-
     def process_data(self, time_array, array, bandwidth=None):
         '''
         Locate inflection points using LOESS regression and zone-based detection.
@@ -459,7 +369,6 @@ class Experiment(object):
         # Reset storage arrays
         self.inflection_points = []
         self.inflection_point_values = []
-        self.plateau_regions = []
         self.filtered_data = {}
         # Reset debug summaries
         self._process_debugs = []
@@ -475,22 +384,6 @@ class Experiment(object):
                 'full_time': time_array,
                 'full_intensity': array
             }
-            
-            # Detect plateau in filtered data
-            plateau_start, plateau_end, plateau_time, plateau_value = self.detect_plateau(
-                filtered_time, filtered_array
-            )
-            
-            if plateau_start is not None:
-                self.plateau_regions.append({
-                    'well_idx': i,
-                    'start_idx': plateau_start,
-                    'end_idx': plateau_end,
-                    'start_time': filtered_time[plateau_start],
-                    'end_time': filtered_time[plateau_end],
-                    'time': plateau_time,
-                    'value': plateau_value
-                })
             
             # Process data for inflection point (using filtered data)
             array_1_x, array_1_y, array_2_x, array_2_y, time_at_inflection, greater_than_index = self.process_data(filtered_time, filtered_array, bandwidth=self.loess_bandwidth)
@@ -511,14 +404,6 @@ class Experiment(object):
             # Mark the inflection point
             ax.plot(time_at_inflection, filtered_array[greater_than_index],
                     marker='*', lw=0.5, ms=15.0, color="#d62728", label='Inflection point')
-            
-            # Mark plateau region if found
-            if plateau_start is not None:
-                plateau_time_region = filtered_time[plateau_start:plateau_end+1]
-                plateau_intensity_region = filtered_array[plateau_start:plateau_end+1]
-                ax.plot(plateau_time_region, plateau_intensity_region,
-                       marker='o', lw=2.0, ms=4.0, color="#2ca02c", alpha=0.6, label='Plateau')
-                ax.axvline(plateau_time, color="#2ca02c", linestyle='--', alpha=0.7)
             
             # Mark cutoff point (first half boundary)
             ax.axvline(filtered_time[-1], color='gray', linestyle=':', alpha=0.5, label='Halfway point')
@@ -567,26 +452,10 @@ class Experiment(object):
         # Clear previous results
         self.inflection_points = []
         self.inflection_point_values = []
-        self.plateau_regions = []
         
         # Re-process all wells with new bandwidth
         for i, array in enumerate(intensity_arrays):
             filtered_time, filtered_array, cutoff_idx = self.filter_first_half(time_array, array)
-            
-            plateau_start, plateau_end, plateau_time, plateau_value = self.detect_plateau(
-                filtered_time, filtered_array
-            )
-            
-            if plateau_start is not None:
-                self.plateau_regions.append({
-                    'well_idx': i,
-                    'start_idx': plateau_start,
-                    'end_idx': plateau_end,
-                    'start_time': filtered_time[plateau_start],
-                    'end_time': filtered_time[plateau_end],
-                    'time': plateau_time,
-                    'value': plateau_value
-                })
             
             # Process with new bandwidth
             array_1_x, array_1_y, array_2_x, array_2_y, time_at_inflection, greater_than_index = self.process_data(
@@ -753,8 +622,8 @@ class Experiment(object):
 
     def plot_inflection_points(self):
         '''
-        Create a summary plot showing inflection points and plateaus across all wells.
-        This creates a grid visualisation where each well's inflection point and plateau
+        Create a summary plot showing inflection points across all wells.
+        This creates a grid visualisation where each well's inflection point
         are displayed in a heatmap format.
         '''
         rows = self.user_parameters.get("rows")
@@ -800,7 +669,6 @@ class Experiment(object):
         # Print summary statistics (unchanged)
         print("\n=== Summary Statistics ===")
         print(f"Total wells analyzed: {len(self.inflection_points)}")
-        print(f"Wells with detected plateaus: {len(self.plateau_regions)}")
         if len(self.inflection_points) > 0:
             print(f"\nInflection Points:")
             print(f"  Mean: {np.nanmean(inflection_matrix):.2f} min")
@@ -816,15 +684,6 @@ class Experiment(object):
             print(f"  Std: {np.nanstd(inflection_value_matrix):.4f}")
             print(f"  Min: {np.nanmin(inflection_value_matrix):.4f}")
             print(f"  Max: {np.nanmax(inflection_value_matrix):.4f}")
-
-        if len(self.plateau_regions) > 0:
-            plateau_times = [p['time'] for p in self.plateau_regions]
-            print(f"\nPlateau Start Times:")
-            print(f"  Mean: {np.mean(plateau_times):.2f} min")
-            print(f"  Median: {np.median(plateau_times):.2f} min")
-            print(f"  Std: {np.std(plateau_times):.2f} min")
-            print(f"  Min: {np.min(plateau_times):.2f} min")
-            print(f"  Max: {np.max(plateau_times):.2f} min")
 
         return
 
